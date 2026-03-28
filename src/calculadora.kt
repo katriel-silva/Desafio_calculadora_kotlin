@@ -1,96 +1,101 @@
-fun main (){
-    println("Digite uma operação matematica!! (com no minimo 9 caracteres)")
-    val calculoDigitado = readlnOrNull() ?: "" // O ?: garante basecamente se a pessoa nao escreveu nada, a variavel vai "guardar um valor vazio"
+fun main() {
+    println("Digite uma operação matemática!! (com no mínimo 9 caracteres)")
+    // Pega o que o usuário digitou. O "?:" garante que não dê erro se vier vazio.
+    val calculoDigitado = readlnOrNull() ?: ""
 
-    //o ".length" conta o tamanho do texto. Se for menor que 9, ele avisa o erro
-    if (calculoDigitado.length < 9){
-        println("O calculo tem menos de 9 caracteres!")
-        return //basicamente encerra o codigo
+    // Conta o tamanho do texto. Se for menor que 9, avisa o erro e para tudo.
+    if (calculoDigitado.length < 9) {
+        println("Erro: O cálculo tem menos de 9 caracteres!")
+        return // Encerra o programa aqui
     }
 
-    // ".replace(" ", ""):"  Pega o texto e troca todos os espaços em branco (" ") por nada (""). Isso junta tudo, transformando 5 + 2 em 5+2.
-    //O "Regex" acha qualquer número colado em um parêntese e insere um * no meio.
-    val codigoLimpo = calculoDigitado.replace("", " ").replace(Regex("(\\d)\\(照"), "$1*(")
+    // ".replace(" ", "")" tira todos os espaços. Ex: "5 + 2" vira "5+2"
+    // O ".replace(Regex...)" acha casos tipo "2(5)" e coloca um vezes no meio: "2*(5)"
+    val codigoLimpo = calculoDigitado.replace(" ", "").replace(Regex("(\\d)\\("), "$1*(")
 
-    // TRY / CATCH: A REDE DE SEGURANÇA
-    // Serve para o programa não "morrer" se o usuário errar.
-    // TRY: "Tenta" rodar o código perigoso (cálculos).
-    // CATCH: "Captura" o erro. Se o TRY falhar, o código pula
-    //pra cá em vez de travar o computador.
+    // O TRY tenta rodar o cálculo. Se o usuário digitar algo muito louco (tipo letras),
+    // o CATCH segura o erro e não deixa o programa travar feio na tela.
     try {
         val resultado = resolver(codigoLimpo)
-        println("Resultado: $resultado")
-    }catch (e: Exception) {
-        println("Erro na expressão: Verifique os sinais e parênteses.")
+        println("Resultado final: $resultado")
+    } catch (e: Exception) {
+        println("Erro na expressão: Verifique se você digitou a conta certinha.")
     }
 }
 
-fun resolver(expressao: String): Double{
-    val exp = expressao
+// Essa é a função que corta a conta em pedaços até resolver tudo
+fun resolver(conta: String): Double {
 
-    // Tirar parênteses que envolvem toda a conta. Ex: (5+5) -> 5+5
-    if (exp.startsWith("(") && exp.endsWith(")")) {
-        // Só remove se o parêntese do começo for o par do último
-        if (parenteseEquilibrado(exp.substring(1, exp.length - 1))) {
-            return resolver(exp.substring(1, exp.length - 1))
+    // 1. TIRAR PARÊNTESES INÚTEIS
+    // Se a conta inteira estiver dentro de parênteses tipo "(5+2)", a gente tira eles
+    if (conta.startsWith("(") && conta.endsWith(")")) {
+        val mioloDaConta = conta.substring(1, conta.length - 1)
+
+        // Só tira se não for desmanchar a conta (ex: "(5)+(2)" não pode tirar das pontas)
+        if (parenteseEquilibrado(mioloDaConta)) {
+            return resolver(mioloDaConta) // Roda a função de novo, mas sem os parênteses
         }
     }
 
-    // Procurar o operador (+, -, *, /)
-    // Precisamos achar primeiro o + ou -, pois na matemática resolvemos o * e / antes.
-    // Como o código quebra a conta, o que ele achar PRIMEIRO é o que será resolvido por ÚLTIMO.
-
-    var indiceOperador = -1
-    var prioridadeAtual = 0 // 1 para +/-, 2 para */ /
-
+    // Variável para saber se estamos lendo algo dentro de um parêntese
     var nivelParenteses = 0
 
-    // Varremos a conta de trás para frente
-    for (i in exp.indices.reversed()) {
-        val char = exp[i]
+    // 2. PROCURAR SOMA (+) OU SUBTRAÇÃO (-)
+    // A gente lê a conta de trás pra frente.
+    for (i in conta.indices.reversed()) {
+        val letra = conta[i]
 
-        // Se estivermos dentro de um parêntese, ignoramos o que está lá dentro por enquanto
-        if (char == ')') nivelParenteses++
-        else if (char == '(') nivelParenteses--
+        if (letra == ')') nivelParenteses++
+        if (letra == '(') nivelParenteses--
 
-        if (nivelParenteses == 0) {
-            if (char == '+' || char == '-') {
-                indiceOperador = i
-                prioridadeAtual = 1
-                break // Soma e subtração são prioridade para quebrar a conta
-            } else if ((char == '*' || char == '/') && prioridadeAtual < 2) {
-                indiceOperador = i
-                prioridadeAtual = 2
+        // Só corta a conta se a gente não estiver dentro de um parêntese
+        if (nivelParenteses == 0 && (letra == '+' || letra == '-') && i > 0) {
+
+            // Regrinha pra não cortar se for só um número negativo (Ex: 5 * -2)
+            val letraAntes = conta[i - 1]
+            if (letraAntes != '*' && letraAntes != '/' && letraAntes != '(') {
+
+                // Corta a conta no meio! Pega o lado esquerdo e o lado direito do sinal
+                val ladoEsquerdo = conta.substring(0, i)
+                val ladoDireito = conta.substring(i + 1)
+
+                // Resolve cada lado separado e junta
+                if (letra == '+') return resolver(ladoEsquerdo) + resolver(ladoDireito)
+                if (letra == '-') return resolver(ladoEsquerdo) - resolver(ladoDireito)
             }
         }
     }
 
-    // achou um operador, corta a conta em duas e resolve cada lado
-    if (indiceOperador != -1) {
-        val esquerda = exp.substring(0, indiceOperador)
-        val direita = exp.substring(indiceOperador + 1)
-        val op = exp[indiceOperador]
+    // 3. PROCURAR MULTIPLICAÇÃO (*) OU DIVISÃO (/)
+    // Se o código chegou até aqui, é porque não achou + nem -. Então procura * ou /
+    nivelParenteses = 0
+    for (i in conta.indices.reversed()) {
+        val letra = conta[i]
 
-        return when (op) {
-            '+' -> resolver(esquerda) + resolver(direita)
-            '-' -> resolver(esquerda) - resolver(direita)
-            '*' -> resolver(esquerda) * resolver(direita)
-            '/' -> resolver(esquerda) / resolver(direita)
-            else -> 0.0
+        if (letra == ')') nivelParenteses++
+        if (letra == '(') nivelParenteses--
+
+        if (nivelParenteses == 0 && (letra == '*' || letra == '/')) {
+            val ladoEsquerdo = conta.substring(0, i)
+            val ladoDireito = conta.substring(i + 1)
+
+            if (letra == '*') return resolver(ladoEsquerdo) * resolver(ladoDireito)
+            if (letra == '/') return resolver(ladoEsquerdo) / resolver(ladoDireito)
         }
     }
 
-    // Se não há operadores, sobrou apenas o número
-    return exp.toDouble()
+    // 4. SOBROU SÓ O NÚMERO
+    // Se não achou nenhum sinal de +, -, * ou /, é porque a string só tem um número! (Ex: "5")
+    return conta.toDouble()
 }
 
-// Função auxiliar para checar se os parênteses estão fechando certinho
+// Função auxiliar pra checar se a pessoa fechou todos os parênteses que abriu
 fun parenteseEquilibrado(texto: String): Boolean {
     var balanco = 0
-    for (char in texto) {
-        if (char == '(') balanco++
-        if (char == ')') balanco--
-        if (balanco < 0) return false
+    for (letra in texto) {
+        if (letra == '(') balanco++
+        if (letra == ')') balanco--
+        if (balanco < 0) return false // Fechou um parêntese antes de abrir
     }
-    return balanco == 0
+    return balanco == 0 // Devolve 'true' se deu tudo certo
 }
